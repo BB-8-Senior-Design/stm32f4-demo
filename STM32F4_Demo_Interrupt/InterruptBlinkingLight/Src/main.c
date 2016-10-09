@@ -94,7 +94,7 @@ int main(void)
   while (1)
   {
   /* USER CODE END WHILE */
-	  // Wow interrupts!!!!!
+	  // Wow interruptz!!!!!
   /* USER CODE BEGIN 3 */
 
   }

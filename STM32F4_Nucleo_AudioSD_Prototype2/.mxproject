@@ -1,7 +1,7 @@
 [PreviousGenFiles]
-HeaderPath=C:/cygwin64/home/Chris/Nucleo/NucleoTest/Inc
+HeaderPath=C:/cygwin64/home/Chris/BB-8-Senior-Design/stm32f4-demo/STM32F4_Nucleo_AudioSD_Prototype2/Inc
 HeaderFiles=ffconf.h;bsp_driver_sd.h;fatfs.h;stm32f4xx_it.h;stm32f4xx_hal_conf.h;main.h;
-SourcePath=C:/cygwin64/home/Chris/Nucleo/NucleoTest/Src
+SourcePath=C:/cygwin64/home/Chris/BB-8-Senior-Design/stm32f4-demo/STM32F4_Nucleo_AudioSD_Prototype2/Src
 SourceFiles=ffconf.h;bsp_driver_sd.h;fatfs.h;stm32f4xx_it.h;stm32f4xx_hal_conf.h;main.h;bsp_driver_sd.c;fatfs.c;stm32f4xx_it.c;stm32f4xx_hal_msp.c;main.c;
 
 [PreviousLibFiles]

@@ -58,6 +58,9 @@ HAL_SD_CardInfoTypedef SDCardInfo;
 FATFS fileSystem;
 FIL fileHandle;
 FRESULT mountOpRes, openOpRes, readOpRes;
+uint8_t buffer[100] = {0};
+unsigned int bytesToRead = 12;
+unsigned int numBytesRead = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -96,10 +99,21 @@ int main(void)
   MX_FATFS_Init();
 
   /* USER CODE BEGIN 2 */
-  HAL_SD_Init(&hsd, &SDCardInfo);
+  uint8_t initResult = HAL_SD_Init(&hsd, &SDCardInfo);
+  if (initResult == 0) {
   HAL_Delay(100);
-  mountOpRes = f_mount(&fileSystem, SD_Path, 1);
-  if (mountOpRes == FR_OK) HAL_GPIO_WritePin(BLUE_LED_GPIO_Port, BLUE_LED_Pin, GPIO_PIN_SET);
+  mountOpRes = f_mount(&fileSystem, SD_Path, 0);
+  if (mountOpRes == FR_OK) {
+	  openOpRes = f_open(&fileHandle, "in.txt", FA_OPEN_EXISTING | FA_READ);
+	  if (openOpRes == FR_OK) {
+		  readOpRes = f_read(&fileHandle, buffer, bytesToRead, &numBytesRead);
+		  f_close(&fileHandle);
+		  HAL_GPIO_WritePin(BLUE_LED_GPIO_Port, BLUE_LED_Pin, GPIO_PIN_SET);
+		  HAL_Delay(1);
+	  }
+  }
+  }
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -109,7 +123,7 @@ int main(void)
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
-
+	  HAL_GPIO_WritePin(RED_LED_GPIO_Port, RED_LED_Pin, GPIO_PIN_SET);
   }
   /* USER CODE END 3 */
 
@@ -202,14 +216,14 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOC_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(BLUE_LED_GPIO_Port, BLUE_LED_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOD, RED_LED_Pin|BLUE_LED_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : BLUE_LED_Pin */
-  GPIO_InitStruct.Pin = BLUE_LED_Pin;
+  /*Configure GPIO pins : RED_LED_Pin BLUE_LED_Pin */
+  GPIO_InitStruct.Pin = RED_LED_Pin|BLUE_LED_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(BLUE_LED_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
 }
 

@@ -2519,7 +2519,6 @@ static HAL_SD_ErrorTypedef SD_PowerON(SD_HandleTypeDef *hsd)
   
   /* Enable SDIO Clock */
   __HAL_SD_SDIO_ENABLE();
-  HAL_Delay(100);
   
   /* CMD0: GO_IDLE_STATE -----------------------------------------------------*/
   /* No CMD response required */

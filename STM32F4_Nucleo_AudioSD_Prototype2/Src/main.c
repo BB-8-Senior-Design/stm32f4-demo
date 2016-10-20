@@ -72,7 +72,7 @@ static uint32_t SLUT [60049] = {633,633,633,632,632,632,632,632,632,632,631,632,
 
 FATFS AUDIO_SD_disk;
 FIL AUDIO_SD_file;
-char AUDIO_SD_diskPath[4];
+char AUDIO_SD_diskPath[4] = "\0\0\0\0";
 
 
 /* USER CODE END PV */
@@ -178,7 +178,7 @@ int main(void)
 
   int AUDIO_TEST_timestep = 0;
   // initialize SD card
-  //AUDIO_SD_configure();
+  AUDIO_SD_configure();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -426,30 +426,57 @@ uint32_t AUDIO_TEST_genpwmSine(float frequency, int timestep) {
 }
 
 /////////////////////////
-// Audio Stuff        //
+// SD Stuff        //
 ////////////////////////
 
 void AUDIO_SD_configure() {
-	if(FATFS_LinkDriver(&SD_Driver, AUDIO_SD_diskPath) == 0) {
-		BSP_SD_Init();
-		FRESULT mount_result = f_mount(&AUDIO_SD_disk, (TCHAR const*)"/", 0);
+	uint8_t readText[100];
+	//if(FATFS_LinkDriver(&SD_Driver,AUDIO_SD_diskPath)==0) {
+	// AUDIO_SD_diskPath[0] = '0';
+	volatile FRESULT mountResult = f_mount(&AUDIO_SD_disk, (TCHAR const*)AUDIO_SD_diskPath, 0);
+	if(mountResult != FR_OK) {
+		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+		//cry
+	}
+	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+	volatile FRESULT openResult = f_open(&AUDIO_SD_file, "in.txt", FA_OPEN_ALWAYS | FA_READ);
+	if(openResult != FR_OK)
+	{
+	  /* 'STM32.TXT' file Open for write Error */
+	  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+	}
+	volatile FRESULT readResult = f_read(&AUDIO_SD_file, readText, sizeof(readText), 0);
+	if(readResult != FR_OK)
+		{
+		  /* 'STM32.TXT' file Open for write Error */
+		  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+		}
+	f_close(&AUDIO_SD_file);
+	//}
+}
+/*
+void AUDIO_SD_configure() {
+
+	//if(FATFS_LinkDriver(&SD_Driver, AUDIO_SD_diskPath) == 0) {
+		//volatile uint8_t status = BSP_SD_Init();
+		volatile DSTATUS diskInit = disk_initialize(0);
+		volatile FRESULT mount_result = f_mount(&AUDIO_SD_disk, (TCHAR const*) AUDIO_SD_diskPath, 1);
 		if(mount_result != FR_OK) {
 			// failed
-		} else {
-			HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
-			// success, now try to open /
-			FRESULT dirResult;
-			DIR directory;
-			dirResult = f_opendir(&directory, "/");
-			if((dirResult != FR_OK)) {
-				HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
-			} else {
-
-			}
+			return;
 		}
-	}
+		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+		// success, now try to open /
+		for(int i = 0; i < 16777216; i++) {}
+		volatile FRESULT fopen_result;
+		fopen_result = f_open(&AUDIO_SD_file, "dammit.txt", FA_CREATE_ALWAYS | FA_WRITE);
+		if (fopen_result != FR_OK) {
+			HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+			return;
+		}
+	//}
 }
-
+*/
 
 /* USER CODE END 4 */
 

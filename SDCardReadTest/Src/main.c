@@ -50,6 +50,7 @@
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
+
 SD_HandleTypeDef hsd;
 HAL_SD_CardInfoTypedef SDCardInfo;
 
@@ -68,6 +69,7 @@ void SystemClock_Config(void);
 void Error_Handler(void);
 static void MX_GPIO_Init(void);
 static void MX_SDIO_SD_Init(void);
+static void MX_I2C1_Init(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
@@ -97,6 +99,7 @@ int main(void)
   MX_GPIO_Init();
   MX_SDIO_SD_Init();
   MX_FATFS_Init();
+  MX_I2C1_Init();
 
   /* USER CODE BEGIN 2 */
   uint8_t initResult = HAL_SD_Init(&hsd, &SDCardInfo);
@@ -185,6 +188,12 @@ void SystemClock_Config(void)
   HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
 }
 
+/* I2C1 init function */
+static void MX_I2C1_Init(void)
+{
+
+}
+
 /* SDIO init function */
 static void MX_SDIO_SD_Init(void)
 {
@@ -205,6 +214,9 @@ static void MX_SDIO_SD_Init(void)
         * Output
         * EVENT_OUT
         * EXTI
+     PB5   ------> I2C1_SMBA
+     PB6   ------> I2C1_SCL
+     PB7   ------> I2C1_SDA
 */
 static void MX_GPIO_Init(void)
 {
@@ -214,6 +226,7 @@ static void MX_GPIO_Init(void)
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOD, RED_LED_Pin|BLUE_LED_Pin, GPIO_PIN_RESET);
@@ -224,6 +237,14 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PB5 PB6 PB7 */
+  GPIO_InitStruct.Pin = GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  GPIO_InitStruct.Alternate = GPIO_AF4_I2C1;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
 }
 

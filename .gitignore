@@ -91,3 +91,6 @@ local.properties
 # Debug files
 *.dSYM/
 *.su
+
+# Application specific
+*.mxproject

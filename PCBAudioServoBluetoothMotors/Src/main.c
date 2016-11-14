@@ -50,6 +50,8 @@
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc1;
+
 DAC_HandleTypeDef hdac;
 DMA_HandleTypeDef hdma_dac2;
 
@@ -58,7 +60,9 @@ HAL_SD_CardInfoTypedef SDCardInfo;
 
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim6;
+TIM_HandleTypeDef htim11;
 TIM_HandleTypeDef htim13;
 
 UART_HandleTypeDef huart2;
@@ -90,6 +94,12 @@ static DAC_ChannelConfTypeDef sConfig;
 volatile uint8_t SERVO_direction = 0;
 volatile uint16_t SERVO_dutyCycle = 1500; // servo duty cycle in microseconds
 
+/*####################################*\
+ * Motor Private Variables
+\*####################################*/
+
+volatile uint8_t MOTOR_direction = 0; // 0 is stop, 1 is go, lol rip in peace
+volatile int arbitraryCounter = 0;
 
 /*####################################*\
  * Bluetooth Private Variables
@@ -100,6 +110,13 @@ uint8_t bluetoothRxBuffer[2] = {0};
 uint8_t commandBuffer[30] = {0};
 uint8_t commandBufferIndex = 0;
 volatile uint8_t commandReceiveCompleted = 0;
+
+/*####################################*\
+ * Battery gauge Private Variables
+\*####################################*/
+volatile uint32_t rawADC;
+volatile float batteryPercentage;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -114,6 +131,9 @@ static void MX_USART2_UART_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM6_Init(void);
 static void MX_TIM13_Init(void);
+static void MX_TIM4_Init(void);
+static void MX_TIM11_Init(void);
+static void MX_ADC1_Init(void);
 
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
                                 
@@ -135,9 +155,19 @@ void SystemClock_Config(void);
 void Error_Handler(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
+
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
+{
+	if (__HAL_ADC_GET_FLAG(hadc, ADC_FLAG_EOC)) {
+		rawADC = HAL_ADC_GetValue(hadc);
+		batteryPercentage = ((((((float)rawADC)/4096.0)*13.3)-9.0)/3.4)*100;
+		HAL_ADC_Start_IT(hadc);
+	}
+}
+
 void HAL_UART_RxCpltCallback (UART_HandleTypeDef* huart) {
 	if (huart->Instance == USART2) {
 		// If we are receiving a new command, zero out its buffer
@@ -201,12 +231,18 @@ void BLUE_Process_Command(uint8_t* command) {
 		if (command[5] == '1' && command[6] == 'C') {
 			if (command[8] == '0' && command[9] == '0') { // stop motors
 				HAL_GPIO_WritePin(MC2_INH_3_3_GPIO_Port, MC2_INH_3_3_Pin, GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(MC2_IN1_GPIO_Port, MC2_IN1_Pin, GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(MC2_IN2_GPIO_Port, MC2_IN2_Pin, GPIO_PIN_RESET);
-			} else {
+				arbitraryCounter = 0;
+				MOTOR_direction = 0;
+				// HAL_GPIO_WritePin(MC2_IN1_GPIO_Port, MC2_IN1_Pin, GPIO_PIN_RESET);
+				// HAL_GPIO_WritePin(MC2_IN2_GPIO_Port, MC2_IN2_Pin, GPIO_PIN_RESET);
+			} else if (command[8] == '0' && command[9] == '1') {
 				HAL_GPIO_WritePin(MC2_INH_3_3_GPIO_Port, MC2_INH_3_3_Pin, GPIO_PIN_SET);
-				HAL_GPIO_WritePin(MC2_IN1_GPIO_Port, MC2_IN1_Pin, GPIO_PIN_SET);
-				HAL_GPIO_WritePin(MC2_IN2_GPIO_Port, MC2_IN2_Pin, GPIO_PIN_RESET);
+				MOTOR_direction = 1;
+				// HAL_GPIO_WritePin(MC2_IN1_GPIO_Port, MC2_IN1_Pin, GPIO_PIN_SET);
+				// HAL_GPIO_WritePin(MC2_IN2_GPIO_Port, MC2_IN2_Pin, GPIO_PIN_RESET);
+			} else if (command[8] == '0' && command[9] == '2') {
+				HAL_GPIO_WritePin(MC2_INH_3_3_GPIO_Port, MC2_INH_3_3_Pin, GPIO_PIN_SET);
+				MOTOR_direction = 2;
 			}
 		}
 	}
@@ -218,7 +254,7 @@ void BLUE_Process_Command(uint8_t* command) {
 \*############################*/
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	// HAL_GPIO_WritePin(LD5_GPIO_Port, LD5_Pin, GPIO_PIN_RESET);
-	uint8_t SERVO_speed = 25;
+	uint8_t SERVO_speed = 50;
 	if(htim->Instance == TIM2) {
 		if(SERVO_direction == 0) {
 					return;
@@ -239,6 +275,37 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 		TIM1->CCR1 = (uint32_t)SERVO_dutyCycle;
 	} else if (htim->Instance == TIM13) {
 		HAL_GPIO_TogglePin(HEARTBEAT_LED_GPIO_Port, HEARTBEAT_LED_Pin);
+	} else if (htim->Instance == TIM11) {
+		//arbitrarily- right
+		//todo: don't do this
+
+		if (MOTOR_direction == 0 || MOTOR_direction == 2) {
+			TIM11->CCR1 = 0;
+		} else if (MOTOR_direction == 1) {
+			arbitraryCounter++;
+			if (arbitraryCounter > 100) {
+				arbitraryCounter = 0;
+				if (TIM11->CCR1 < 100) {
+					TIM11->CCR1 += 1;
+				} else {
+					TIM11->CCR1 = 100;
+				}
+			}
+		}
+	} else if (htim->Instance == TIM4) {
+		if (MOTOR_direction == 0 || MOTOR_direction == 1) {
+			TIM4->CCR1 = 0;
+		} else if (MOTOR_direction == 2) {
+			arbitraryCounter++;
+			if (arbitraryCounter > 100) {
+				arbitraryCounter = 0;
+				if (TIM4->CCR1 < 100) {
+					TIM4->CCR1 += 1;
+				} else {
+					TIM4->CCR1 = 100;
+				}
+			}
+		}
 	}
 }
 /* USER CODE END 0 */
@@ -269,6 +336,9 @@ int main(void)
   MX_TIM6_Init();
   MX_FATFS_Init();
   MX_TIM13_Init();
+  MX_TIM4_Init();
+  MX_TIM11_Init();
+  MX_ADC1_Init();
 
   /* USER CODE BEGIN 2 */
   // Wake up the RN4020
@@ -301,8 +371,16 @@ int main(void)
   HAL_TIM_Base_Start_IT(&htim2);
   HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_1);
 
+  HAL_TIM_Base_Start_IT(&htim4);
+  HAL_TIM_Base_Start_IT(&htim11);
+  HAL_TIM_PWM_Start(&htim4,TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim11,TIM_CHANNEL_1);
+
   // Heartbeat LED
   HAL_TIM_Base_Start_IT(&htim13);
+
+  HAL_ADC_Start_IT(&hadc1);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -383,6 +461,42 @@ void SystemClock_Config(void)
 
   /* SysTick_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
+}
+
+/* ADC1 init function */
+static void MX_ADC1_Init(void)
+{
+
+  ADC_ChannelConfTypeDef sConfig;
+
+    /**Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion) 
+    */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
+  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc1.Init.ScanConvMode = ENABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+    /**Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time. 
+    */
+  sConfig.Channel = ADC_CHANNEL_14;
+  sConfig.Rank = 1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
 }
 
 /* DAC init function */
@@ -513,6 +627,43 @@ static void MX_TIM2_Init(void)
 
 }
 
+/* TIM4 init function */
+static void MX_TIM4_Init(void)
+{
+
+  TIM_MasterConfigTypeDef sMasterConfig;
+  TIM_OC_InitTypeDef sConfigOC;
+
+  htim4.Instance = TIM4;
+  htim4.Init.Prescaler = 1679;
+  htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim4.Init.Period = 100;
+  htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  if (HAL_TIM_PWM_Init(&htim4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  HAL_TIM_MspPostInit(&htim4);
+
+}
+
 /* TIM6 init function */
 static void MX_TIM6_Init(void)
 {
@@ -534,6 +685,40 @@ static void MX_TIM6_Init(void)
   {
     Error_Handler();
   }
+
+}
+
+/* TIM11 init function */
+static void MX_TIM11_Init(void)
+{
+
+  TIM_OC_InitTypeDef sConfigOC;
+
+  htim11.Instance = TIM11;
+  htim11.Init.Prescaler = 1679;
+  htim11.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim11.Init.Period = 100;
+  htim11.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  if (HAL_TIM_Base_Init(&htim11) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  if (HAL_TIM_PWM_Init(&htim11) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim11, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  HAL_TIM_MspPostInit(&htim11);
 
 }
 
@@ -612,8 +797,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOA, BLUE_WAKE_SW_Pin|BLUE_WAKE_HW_Pin|MC2_INH_3_3_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, BLUE_CMD_Pin|SPEAKER_SHUTDOWN_Pin|DEBUG_LED_Pin|MC2_IN1_Pin 
-                          |MC2_IN2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, BLUE_CMD_Pin|SPEAKER_SHUTDOWN_Pin|DEBUG_LED_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : HEARTBEAT_LED_Pin */
   GPIO_InitStruct.Pin = HEARTBEAT_LED_Pin;
@@ -629,10 +813,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : BLUE_CMD_Pin SPEAKER_SHUTDOWN_Pin DEBUG_LED_Pin MC2_IN1_Pin 
-                           MC2_IN2_Pin */
-  GPIO_InitStruct.Pin = BLUE_CMD_Pin|SPEAKER_SHUTDOWN_Pin|DEBUG_LED_Pin|MC2_IN1_Pin 
-                          |MC2_IN2_Pin;
+  /*Configure GPIO pins : BLUE_CMD_Pin SPEAKER_SHUTDOWN_Pin DEBUG_LED_Pin */
+  GPIO_InitStruct.Pin = BLUE_CMD_Pin|SPEAKER_SHUTDOWN_Pin|DEBUG_LED_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;

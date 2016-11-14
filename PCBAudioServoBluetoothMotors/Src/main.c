@@ -294,26 +294,46 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 			if (arbitraryCounter > 100) {
 				arbitraryCounter = 0;
 				if (MOTOR_direction == 1 || MOTOR_direction == 4) {
-					if (TIM4->CCR1 < 100) TIM4->CCR1 += 1;
+					if (TIM4->CCR1 < 50) TIM4->CCR1 += 1;
 					TIM4->CCR4 = 0;
 				} else if (MOTOR_direction == 2 || MOTOR_direction == 3) {
-					if (TIM4->CCR4 < 100) TIM4->CCR4 += 1;
+					if (TIM4->CCR4 < 50) TIM4->CCR4 += 1;
 					TIM4->CCR1 = 0;
 				}
 				if (MOTOR_direction == 2 || MOTOR_direction == 4) {
-					if (TIM8->CCR2 < 100) TIM8->CCR2 += 1;
+					if (TIM8->CCR2 < 50) TIM8->CCR2 += 1;
 					TIM8->CCR1 = 0;
 				} else if (MOTOR_direction == 1 || MOTOR_direction == 3) {
-					if (TIM8->CCR1 < 100) TIM8->CCR1 += 1;
+					if (TIM8->CCR1 < 50) TIM8->CCR1 += 1;
 					TIM8->CCR2 = 0;
 				}
 			}
 		} else {
 			// all stop
-			TIM4->CCR1 = 0;
-			TIM4->CCR4 = 0;
-			TIM8->CCR1 = 0;
-			TIM8->CCR2 = 0;
+			// TIM4->CCR1 = 0;
+			// TIM4->CCR4 = 0;
+			// TIM8->CCR1 = 0;
+			// TIM8->CCR2 = 0;
+			if (TIM4->CCR1 != 0 || TIM4->CCR4 != 0 || TIM8->CCR1 != 0 || TIM8->CCR2 != 0) {
+				arbitraryCounter++;
+				if (arbitraryCounter > 100) {
+					arbitraryCounter = 0;
+
+					if (TIM4->CCR1 > 1) TIM4->CCR1 -= 1;
+					else TIM4->CCR1 = 0;
+
+					if (TIM4->CCR4 > 1) TIM4->CCR4 -= 1;
+					else TIM4->CCR4 = 0;
+
+					if (TIM8->CCR1 > 1) TIM8->CCR1 -= 1;
+					else TIM8->CCR1 = 0;
+
+					if (TIM8->CCR2 > 1) TIM8->CCR2 -= 1;
+					else TIM8->CCR2 = 0;
+				}
+			} else {
+				arbitraryCounter = 0;
+			}
 		}
 	}
 }
@@ -612,7 +632,7 @@ static void MX_TIM2_Init(void)
   TIM_OC_InitTypeDef sConfigOC;
 
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 167;
+  htim2.Init.Prescaler = 83;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim2.Init.Period = 40000;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;

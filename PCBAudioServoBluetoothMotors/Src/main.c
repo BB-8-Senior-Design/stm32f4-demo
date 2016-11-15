@@ -63,6 +63,7 @@ TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim6;
 TIM_HandleTypeDef htim8;
+TIM_HandleTypeDef htim11;
 TIM_HandleTypeDef htim13;
 
 UART_HandleTypeDef huart2;
@@ -117,6 +118,7 @@ volatile uint8_t commandReceiveCompleted = 0;
 volatile uint32_t rawADC;
 volatile float batteryPercentage;
 volatile uint8_t batteryPercentageBluetooth = 100;
+volatile uint8_t oldBatteryPercentageBluetooth = 100;
 
 /* USER CODE END PV */
 
@@ -135,6 +137,7 @@ static void MX_TIM13_Init(void);
 static void MX_TIM4_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_TIM8_Init(void);
+static void MX_TIM11_Init(void);
 
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
                                 
@@ -168,15 +171,19 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 		rawADC = HAL_ADC_GetValue(hadc);
 		batteryPercentage = ((((((float)rawADC)/4096.0)*13.3)-9.0)/3.4)*100;
 		batteryPercentageBluetooth = (uint8_t) batteryPercentage;
-		uint8_t commandToSend[] = "SUW,2A19,00\r\n";
-		char sixteensplace [2];
-		char onesplace [2];
-		sprintf(onesplace, "%1x", ((int)(batteryPercentageBluetooth%16)));
-		sprintf(sixteensplace, "%1x", (uint8_t)(((batteryPercentageBluetooth-(batteryPercentageBluetooth%16))/16)));
-		commandToSend[9] = sixteensplace[0];
-		commandToSend[10] = onesplace[0];
-		HAL_UART_Transmit(&huart2, commandToSend, 13, 100);
-		HAL_ADC_Start_IT(hadc);
+		if ((batteryPercentageBluetooth < (oldBatteryPercentageBluetooth-1)) || (batteryPercentageBluetooth > (oldBatteryPercentageBluetooth+1))) {
+			// things have CHANGED
+			oldBatteryPercentageBluetooth = batteryPercentageBluetooth;
+			// otherwise things haven't
+			uint8_t commandToSend[] = "SUW,2A19,00\r\n";
+			char sixteensplace [2];
+			char onesplace [2];
+			sprintf(onesplace, "%1x", ((int)(batteryPercentageBluetooth%16)));
+			sprintf(sixteensplace, "%1x", (uint8_t)(((batteryPercentageBluetooth-(batteryPercentageBluetooth%16))/16)));
+			commandToSend[9] = sixteensplace[0];
+			commandToSend[10] = onesplace[0];
+			HAL_UART_Transmit(&huart2, commandToSend, 13, 100);
+		}
 	}
 }
 
@@ -212,13 +219,13 @@ void BLUE_Process_Command(uint8_t* command) {
 				// AUDIO_current_file = 0;
 				stateToSet = GPIO_PIN_RESET;
 			}
-			/*if (command[8] == '0' && command[9] == '1') {
+			if (command[8] == '0' && command[9] == '1') {
 				AUDIO_current_file = 1;
 			}
 			if (command[8] == '0' && command[9] == '2') {
 				AUDIO_current_file = 2;
-			}*/
-			HAL_GPIO_WritePin(DEBUG_LED_GPIO_Port, DEBUG_LED_Pin, stateToSet);
+			}
+			//HAL_GPIO_WritePin(DEBUG_LED_GPIO_Port, DEBUG_LED_Pin, stateToSet);
 		}
 	}
 	// The second characteristic is the WV,001A command
@@ -347,7 +354,11 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 				arbitraryCounter = 0;
 			}
 		}
+	} else if (htim->Instance == TIM11) {
+		//adc
+		HAL_ADC_Start_IT(&hadc1);
 	}
+
 }
 /* USER CODE END 0 */
 
@@ -380,6 +391,7 @@ int main(void)
   MX_TIM4_Init();
   MX_ADC1_Init();
   MX_TIM8_Init();
+  MX_TIM11_Init();
 
   /* USER CODE BEGIN 2 */
   // Wake up the RN4020
@@ -393,7 +405,7 @@ int main(void)
   HAL_UART_Transmit(&huart2, (uint8_t *) bluetoothTxBuffer, 5, 10);
 
   // After restarting, will automatically advertise if configured with SR,20000000
-  //HAL_Delay(3000);
+  HAL_Delay(300);
 
   // Set UART receive on an interrupt
   HAL_UART_Receive_IT(&huart2, bluetoothRxBuffer, 1);
@@ -423,8 +435,13 @@ int main(void)
   // Heartbeat LED
   HAL_TIM_Base_Start_IT(&htim13);
 
+  //Battery status timers
   HAL_ADC_Start_IT(&hadc1);
+  HAL_TIM_Base_Start_IT(&htim11);
 
+
+  // this doesn't exist
+  HAL_GPIO_WritePin(SPEAKER_SHUTDOWN_GPIO_Port, SPEAKER_SHUTDOWN_Pin, GPIO_PIN_SET);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -793,6 +810,38 @@ static void MX_TIM8_Init(void)
   }
 
   HAL_TIM_MspPostInit(&htim8);
+
+}
+
+/* TIM11 init function */
+static void MX_TIM11_Init(void)
+{
+
+  TIM_OC_InitTypeDef sConfigOC;
+
+  htim11.Instance = TIM11;
+  htim11.Init.Prescaler = 65535;
+  htim11.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim11.Init.Period = 12817;
+  htim11.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  if (HAL_TIM_Base_Init(&htim11) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  if (HAL_TIM_OC_Init(&htim11) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  sConfigOC.OCMode = TIM_OCMODE_TIMING;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_OC_ConfigChannel(&htim11, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
 
 }
 

@@ -171,7 +171,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 		rawADC = HAL_ADC_GetValue(hadc);
 		batteryPercentage = ((((((float)rawADC)/4096.0)*13.3)-9.0)/3.4)*100;
 		batteryPercentageBluetooth = (uint8_t) batteryPercentage;
-		if ((batteryPercentageBluetooth < (oldBatteryPercentageBluetooth-1)) || (batteryPercentageBluetooth > (oldBatteryPercentageBluetooth+1))) {
+		if (batteryPercentageBluetooth != oldBatteryPercentageBluetooth) {//((batteryPercentageBluetooth < (oldBatteryPercentageBluetooth-1)) || (batteryPercentageBluetooth > (oldBatteryPercentageBluetooth+1))) {
 			// things have CHANGED
 			oldBatteryPercentageBluetooth = batteryPercentageBluetooth;
 			// otherwise things haven't

@@ -360,6 +360,80 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	}
 
 }
+
+
+/////////////////////////
+// SD Stuff           //
+////////////////////////
+
+void AUDIO_SD_configure(void) {
+	//if(FATFS_LinkDriver(&SD_Driver,AUDIO_SD_diskPath)==0) {
+	// AUDIO_SD_diskPath[0] = '0';
+	FRESULT mountResult = f_mount(&AUDIO_SD_disk, (TCHAR const*)AUDIO_SD_diskPath, 0);
+	if(mountResult != FR_OK) {
+		// HAL_GPIO_WritePin(LD5_GPIO_Port, LD5_Pin, GPIO_PIN_SET);
+		return;
+		//cry
+	}
+	// HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, GPIO_PIN_SET);
+	//}
+	return;
+}
+
+void AUDIO_SD_readFile(char * filename) {
+	UINT bytesRead;
+	FRESULT openResult = f_open(&AUDIO_SD_file, filename, FA_OPEN_ALWAYS | FA_READ);
+	if(openResult != FR_OK)
+	{
+	  /* 'STM32.TXT' file Open for write Error */
+		// HAL_GPIO_WritePin(LD5_GPIO_Port, LD5_Pin, GPIO_PIN_SET);
+	  return;
+	}
+	FRESULT readResult = f_read(&AUDIO_SD_file, &AUDIO_buffer, AUDIO_buffer_size, &bytesRead);
+	if(readResult != FR_OK) {
+	  // please read the file properly
+		// HAL_GPIO_WritePin(LD5_GPIO_Port, LD5_Pin, GPIO_PIN_SET);
+	  return;
+	}
+	f_close(&AUDIO_SD_file);
+	AUDIO_current_file_length = bytesRead;
+	return;
+}
+
+void AUDIO_DAC_configure(void) {
+	if(HAL_DAC_Init(&DacHandle) != HAL_OK) {
+		// HAL_GPIO_WritePin(LD5_GPIO_Port, LD5_Pin, GPIO_PIN_SET);
+		return;
+	}
+	HAL_DAC_Stop_DMA(&DacHandle, DAC_CHANNEL_2);
+	sConfig.DAC_Trigger = DAC_TRIGGER_T6_TRGO;
+	sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
+	if(HAL_DAC_ConfigChannel(&DacHandle, &sConfig, DAC_CHANNEL_2) != HAL_OK) {
+		/* Channel configuration Error */
+		// HAL_GPIO_WritePin(LD5_GPIO_Port, LD5_Pin, GPIO_PIN_SET);
+		return;
+	}
+	if((HAL_DAC_Start(&DacHandle,DAC_CHANNEL_2)) != HAL_OK) {
+		// HAL_GPIO_WritePin(LD5_GPIO_Port, LD5_Pin, GPIO_PIN_SET);
+		return;
+	}
+	if((HAL_DAC_Start_DMA(&DacHandle, DAC_CHANNEL_2, (uint32_t*)AUDIO_buffer, AUDIO_current_file_length, DAC_ALIGN_8B_R) != HAL_OK)) {
+		// HAL_GPIO_WritePin(LD5_GPIO_Port, LD5_Pin, GPIO_PIN_SET);
+		return;
+	}
+	// HAL_GPIO_WritePin(LD6_GPIO_Port, LD6_Pin, GPIO_PIN_SET);
+}
+
+
+/*#############################*\
+ * DAC Transfer complete callback
+\*#############################*/
+
+void HAL_DACEx_ConvCpltCallbackCh2(DAC_HandleTypeDef* hdac)
+{
+	AUDIO_current_file = 0;
+}
+
 /* USER CODE END 0 */
 
 int main(void)
@@ -946,67 +1020,6 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-/////////////////////////
-// SD Stuff           //
-////////////////////////
-
-void AUDIO_SD_configure(void) {
-	//if(FATFS_LinkDriver(&SD_Driver,AUDIO_SD_diskPath)==0) {
-	// AUDIO_SD_diskPath[0] = '0';
-	FRESULT mountResult = f_mount(&AUDIO_SD_disk, (TCHAR const*)AUDIO_SD_diskPath, 0);
-	if(mountResult != FR_OK) {
-		// HAL_GPIO_WritePin(LD5_GPIO_Port, LD5_Pin, GPIO_PIN_SET);
-		return;
-		//cry
-	}
-	// HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, GPIO_PIN_SET);
-	//}
-	return;
-}
-
-void AUDIO_SD_readFile(char * filename) {
-	UINT bytesRead;
-	FRESULT openResult = f_open(&AUDIO_SD_file, filename, FA_OPEN_ALWAYS | FA_READ);
-	if(openResult != FR_OK)
-	{
-	  /* 'STM32.TXT' file Open for write Error */
-		// HAL_GPIO_WritePin(LD5_GPIO_Port, LD5_Pin, GPIO_PIN_SET);
-	  return;
-	}
-	FRESULT readResult = f_read(&AUDIO_SD_file, &AUDIO_buffer, AUDIO_buffer_size, &bytesRead);
-	if(readResult != FR_OK) {
-	  // please read the file properly
-		// HAL_GPIO_WritePin(LD5_GPIO_Port, LD5_Pin, GPIO_PIN_SET);
-	  return;
-	}
-	f_close(&AUDIO_SD_file);
-	AUDIO_current_file_length = bytesRead;
-	return;
-}
-
-void AUDIO_DAC_configure(void) {
-	if(HAL_DAC_Init(&DacHandle) != HAL_OK) {
-		// HAL_GPIO_WritePin(LD5_GPIO_Port, LD5_Pin, GPIO_PIN_SET);
-		return;
-	}
-	HAL_DAC_Stop_DMA(&DacHandle, DAC_CHANNEL_2);
-	sConfig.DAC_Trigger = DAC_TRIGGER_T6_TRGO;
-	sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
-	if(HAL_DAC_ConfigChannel(&DacHandle, &sConfig, DAC_CHANNEL_2) != HAL_OK) {
-		/* Channel configuration Error */
-		// HAL_GPIO_WritePin(LD5_GPIO_Port, LD5_Pin, GPIO_PIN_SET);
-		return;
-	}
-	if((HAL_DAC_Start(&DacHandle,DAC_CHANNEL_2)) != HAL_OK) {
-		// HAL_GPIO_WritePin(LD5_GPIO_Port, LD5_Pin, GPIO_PIN_SET);
-		return;
-	}
-	if((HAL_DAC_Start_DMA(&DacHandle, DAC_CHANNEL_2, (uint32_t*)AUDIO_buffer, AUDIO_current_file_length, DAC_ALIGN_8B_R) != HAL_OK)) {
-		// HAL_GPIO_WritePin(LD5_GPIO_Port, LD5_Pin, GPIO_PIN_SET);
-		return;
-	}
-	// HAL_GPIO_WritePin(LD6_GPIO_Port, LD6_Pin, GPIO_PIN_SET);
-}
 /* USER CODE END 4 */
 
 /**

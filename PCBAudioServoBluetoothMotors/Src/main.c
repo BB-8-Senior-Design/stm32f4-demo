@@ -160,15 +160,26 @@ static void MX_USART2_UART_Init(void);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
+
+/// Update battery service value
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
 	if (__HAL_ADC_GET_FLAG(hadc, ADC_FLAG_EOC)) {
 		rawADC = HAL_ADC_GetValue(hadc);
 		batteryPercentage = ((((((float)rawADC)/4096.0)*13.3)-9.0)/3.4)*100;
 		batteryPercentageBluetooth = (uint8_t) batteryPercentage;
+		uint8_t commandToSend[] = "SUW,2A19,00\r\n";
+		char sixteensplace [2];
+		char onesplace [2];
+		sprintf(onesplace, "%1x", ((int)(batteryPercentageBluetooth%16)));
+		sprintf(sixteensplace, "%1x", (uint8_t)(((batteryPercentageBluetooth-(batteryPercentageBluetooth%16))/16)));
+		commandToSend[9] = sixteensplace[0];
+		commandToSend[10] = onesplace[0];
+		HAL_UART_Transmit(&huart2, commandToSend, 13, 100);
 		HAL_ADC_Start_IT(hadc);
 	}
 }
+
 
 void HAL_UART_RxCpltCallback (UART_HandleTypeDef* huart) {
 	if (huart->Instance == USART2) {
@@ -261,6 +272,7 @@ void BLUE_Process_Command(uint8_t* command) {
 	}
 	commandReceiveCompleted = 0;
 }
+
 
 /*############################*\
  * Servo Timer Update Interrupt

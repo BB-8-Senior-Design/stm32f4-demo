@@ -100,6 +100,7 @@ volatile uint16_t SERVO_dutyCycle = 1500; // servo duty cycle in microseconds
 \*####################################*/
 
 volatile uint8_t MOTOR_direction = 0; // 0 is stop, 1 is go, lol rip in peace
+volatile uint8_t prev_MOTOR_direction = 0;
 volatile int arbitraryCounter = 0;
 
 /*####################################*\
@@ -253,26 +254,37 @@ void BLUE_Process_Command(uint8_t* command) {
 				HAL_GPIO_WritePin(MC1_INH_3_3_GPIO_Port, MC1_INH_3_3_Pin, GPIO_PIN_RESET);
 				HAL_GPIO_WritePin(MC2_INH_3_3_GPIO_Port, MC2_INH_3_3_Pin, GPIO_PIN_RESET);
 				arbitraryCounter = 0;
+				prev_MOTOR_direction = MOTOR_direction;
 				MOTOR_direction = 0;
-				// HAL_GPIO_WritePin(MC2_IN1_GPIO_Port, MC2_IN1_Pin, GPIO_PIN_RESET);
-				// HAL_GPIO_WritePin(MC2_IN2_GPIO_Port, MC2_IN2_Pin, GPIO_PIN_RESET);
+
+				// If we were going forwards, switch the motors to go backwards
+				if (prev_MOTOR_direction == 1) {
+					TIM4->CCR4 = TIM4->CCR1;
+					TIM8->CCR2 = TIM8->CCR1;
+					TIM4->CCR1 = 0;
+					TIM8->CCR1 = 0;
+				}
 			} else if (command[8] == '0' && command[9] == '1') {
 				HAL_GPIO_WritePin(MC1_INH_3_3_GPIO_Port, MC1_INH_3_3_Pin, GPIO_PIN_SET);
 				HAL_GPIO_WritePin(MC2_INH_3_3_GPIO_Port, MC2_INH_3_3_Pin, GPIO_PIN_SET);
+				prev_MOTOR_direction = MOTOR_direction;
 				MOTOR_direction = 1;
 				// HAL_GPIO_WritePin(MC2_IN1_GPIO_Port, MC2_IN1_Pin, GPIO_PIN_SET);
 				// HAL_GPIO_WritePin(MC2_IN2_GPIO_Port, MC2_IN2_Pin, GPIO_PIN_RESET);
 			} else if (command[8] == '0' && command[9] == '2') {
 				HAL_GPIO_WritePin(MC1_INH_3_3_GPIO_Port, MC1_INH_3_3_Pin, GPIO_PIN_SET);
 				HAL_GPIO_WritePin(MC2_INH_3_3_GPIO_Port, MC2_INH_3_3_Pin, GPIO_PIN_SET);
+				prev_MOTOR_direction = MOTOR_direction;
 				MOTOR_direction = 2;
 			} else if (command[8] == '0' && command[9] == '3') {
 				HAL_GPIO_WritePin(MC1_INH_3_3_GPIO_Port, MC1_INH_3_3_Pin, GPIO_PIN_SET);
 				HAL_GPIO_WritePin(MC2_INH_3_3_GPIO_Port, MC2_INH_3_3_Pin, GPIO_PIN_SET);
+				prev_MOTOR_direction = MOTOR_direction;
 				MOTOR_direction = 3;
 			} else if (command[8] == '0' && command[9] == '4') {
 				HAL_GPIO_WritePin(MC1_INH_3_3_GPIO_Port, MC1_INH_3_3_Pin, GPIO_PIN_SET);
 				HAL_GPIO_WritePin(MC2_INH_3_3_GPIO_Port, MC2_INH_3_3_Pin, GPIO_PIN_SET);
+				prev_MOTOR_direction = MOTOR_direction;
 				MOTOR_direction = 4;
 			}
 		}

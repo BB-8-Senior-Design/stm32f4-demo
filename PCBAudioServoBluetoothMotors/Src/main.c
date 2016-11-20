@@ -220,11 +220,8 @@ void BLUE_Process_Command(uint8_t* command) {
 				// AUDIO_current_file = 0;
 				stateToSet = GPIO_PIN_RESET;
 			}
-			if (command[8] == '0' && command[9] == '1') {
-				AUDIO_current_file = 1;
-			}
-			if (command[8] == '0' && command[9] == '2') {
-				AUDIO_current_file = 2;
+			if (command[8] == '0' && command[9] != '0') {
+				AUDIO_current_file = command[9]-'0';
 			}
 			//HAL_GPIO_WritePin(DEBUG_LED_GPIO_Port, DEBUG_LED_Pin, stateToSet);
 		}

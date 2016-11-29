@@ -321,7 +321,69 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 			arbitraryCounter++;
 			if (arbitraryCounter > 100) {
 				arbitraryCounter = 0;
-				if (MOTOR_direction == 1 || MOTOR_direction == 4) {
+				if (MOTOR_direction == 1) {
+					// Start TIM4 Channel 1 and TIM8 Channel 1
+					if (TIM4->CCR1 < 50) TIM4->CCR1 += 1;
+					else TIM4->CCR1 = 50;
+
+					if (TIM8->CCR1 < 50) TIM8->CCR1 += 1;
+					else TIM8->CCR1 = 50;
+
+					// Stop TIM4 Channel 4 and TIM8 Channel 2
+					if (TIM4->CCR4 > 1) TIM4->CCR4 -= 1;
+					else TIM4->CCR4 = 0;
+
+					if (TIM8->CCR2 > 1) TIM8->CCR2 -= 1;
+					else TIM8->CCR2 = 0;
+				}
+
+				if (MOTOR_direction == 2) {
+					// Start TIM4 Channel 4 and TIM8 Channel 2
+					if (TIM4->CCR4 < 50) TIM4->CCR4 += 1;
+					else TIM4->CCR4 = 50;
+
+					if (TIM8->CCR2 < 50) TIM8->CCR2 += 1;
+					else TIM8->CCR2 = 50;
+
+					// Stop TIM4 Channel 1 and TIM8 Channel 1
+					if (TIM4->CCR1 > 1) TIM4->CCR1 -= 1;
+					else TIM4->CCR1 = 0;
+
+					if (TIM8->CCR1 > 1) TIM8->CCR1 -= 1;
+					else TIM8->CCR1 = 0;
+				}
+
+				if (MOTOR_direction == 3) {
+					// Start TIM4 Channel 4 and TIM8 Channel 1
+					if (TIM4->CCR4 < 30) TIM4->CCR4 += 1;
+					else TIM4->CCR4 = 30;
+
+					if (TIM8->CCR1 < 30) TIM8->CCR1 += 1;
+					else TIM8->CCR1 = 30;
+
+					// Stop TIM4 Channel 1 and TIM8 Channel 2
+					if (TIM4->CCR1 > 1) TIM4->CCR1 -= 1;
+					else TIM4->CCR1 = 0;
+
+					if (TIM8->CCR2 > 1) TIM8->CCR2 -= 1;
+					else TIM8->CCR2 = 0;
+				}
+
+				if (MOTOR_direction == 4) {
+					// Start TIM4 Channel 1 and TIM8 Channel 2
+					if (TIM4->CCR1 < 30) TIM4->CCR1 += 1;
+					else TIM4->CCR1 = 30;
+					if (TIM8->CCR2 < 30) TIM8->CCR2 += 1;
+					else TIM8->CCR2 = 30;
+
+					// Stop TIM4 Channel 4 and TIM8 Channel 1
+					if (TIM4->CCR4 > 1) TIM4->CCR4 -= 1;
+					else TIM4->CCR4 = 0;
+
+					if (TIM8->CCR1 > 1) TIM8->CCR1 -= 1;
+					else TIM8->CCR1 = 0;
+				}
+				/*if (MOTOR_direction == 1 || MOTOR_direction == 4) {
 					if (TIM4->CCR1 < 50) TIM4->CCR1 += 1;
 					TIM4->CCR4 = 0;
 				} else if (MOTOR_direction == 2 || MOTOR_direction == 3) {
@@ -334,7 +396,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 				} else if (MOTOR_direction == 1 || MOTOR_direction == 3) {
 					if (TIM8->CCR1 < 50) TIM8->CCR1 += 1;
 					TIM8->CCR2 = 0;
-				}
+				} */
 			}
 		} else {
 			// all stop
